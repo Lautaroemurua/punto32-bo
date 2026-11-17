@@ -208,51 +208,31 @@ textarea { resize: vertical; min-height: 80px; }
 }
 </style>
 
-<!-- ── LOGIN: PEDIR MAGIC LINK ── -->
+<!-- ── LOGIN ── -->
 <div id="view-login" hidden>
   <div class="auth-wrap">
     <div class="auth-card">
       <div class="auth-logo"><em>Factura</em>Pro</div>
       <div class="auth-sub">Panel de administración</div>
       <div class="form-group">
-        <label>Tu email de admin</label>
+        <label>Email de admin</label>
         <input id="inp-email" type="email" placeholder="admin@ejemplo.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password">
         <div id="login-err" class="err" hidden></div>
       </div>
-      <button class="btn btn-primary" id="btn-send-link" style="width:100%;justify-content:center;padding:10px 14px;">
-        Enviar link de acceso
+      <button class="btn btn-primary" id="btn-login" style="width:100%;justify-content:center;padding:10px 14px;">
+        Ingresar
       </button>
     </div>
   </div>
 </div>
 
-<!-- ── LOGIN: LINK ENVIADO ── -->
-<div id="view-sent" hidden>
-  <div class="auth-wrap">
-    <div class="auth-card" style="text-align:center">
-      <div class="sent-icon">📬</div>
-      <div class="sent-title">Revisá tu bandeja</div>
-      <div class="sent-body">
-        Te enviamos un link de acceso a<br>
-        <span class="sent-email" id="sent-email-display"></span><br><br>
-        Hacé click en el link del email para ingresar. Vence en 1 hora.
-      </div>
-      <button class="btn btn-outline btn-sm" id="btn-back-login" style="margin:0 auto">
-        Cambiar email
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ── VERIFICANDO TOKEN ── -->
-<div id="view-verifying" hidden>
-  <div class="auth-wrap">
-    <div class="auth-card" style="text-align:center;padding:48px 36px">
-      <div class="loading" style="justify-content:center;padding:0;margin-bottom:16px"><div class="spinner"></div></div>
-      <div style="color:var(--muted);font-size:14px">Verificando acceso…</div>
-    </div>
-  </div>
-</div>
+<!-- placeholders para no romper refs existentes -->
+<div id="view-sent" hidden></div>
+<div id="view-verifying" hidden></div>
 
 <!-- ── APP ── -->
 <div id="view-app" hidden>
@@ -448,49 +428,30 @@ function showApp() {
 }
 function logout(msg) { clearCreds(); creds = null; clearInterval(refreshTimer); showLogin(msg); }
 
-// MAGIC LINK FLOW
-async function sendMagicLink() {
-  const email = document.getElementById('inp-email').value.trim().toLowerCase();
-  const errEl = document.getElementById('login-err');
-  if (!email) return;
-  const btn = document.getElementById('btn-send-link');
-  btn.disabled = true; btn.textContent = 'Enviando…'; errEl.hidden = true;
+// LOGIN CON CONTRASEÑA
+async function doLogin() {
+  const email    = document.getElementById('inp-email').value.trim().toLowerCase();
+  const password = document.getElementById('inp-pass').value;
+  const errEl    = document.getElementById('login-err');
+  errEl.hidden = true;
+  if (!email || !password) { errEl.textContent = 'Completá email y contraseña.'; errEl.hidden = false; return; }
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = 'Ingresando…';
   try {
-    await fetch(`${API}/admin/magic-link`, {
+    const r = await fetch(`${API}/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    }).then(async r => {
-      const b = await r.json();
-      if (!r.ok) throw new Error(b.error || `Error ${r.status}`);
-      return b;
+      body: JSON.stringify({ email, password }),
     });
-    showSent(email);
-  } catch (e) {
-    errEl.textContent = e.message; errEl.hidden = false;
-  } finally { btn.disabled = false; btn.textContent = 'Enviar link de acceso'; }
-}
-
-async function verifyToken(token) {
-  showVerifying();
-  try {
-    const d = await fetch(`${API}/admin/magic-verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    }).then(async r => {
-      const b = await r.json();
-      if (!r.ok) throw new Error(b.error || `Error ${r.status}`);
-      return b;
-    });
-    creds = { jwt: d.jwt, email: d.email };
-    saveCreds(d.jwt, d.email);
-    // limpiar token de la URL
-    history.replaceState({}, '', '/');
+    const b = await r.json();
+    if (!r.ok) throw new Error(b.error || `Error ${r.status}`);
+    creds = { jwt: b.jwt, email: b.email };
+    saveCreds(b.jwt, b.email);
+    document.getElementById('inp-pass').value = '';
     showApp();
   } catch (e) {
-    showLogin(e.message || 'Error al verificar el link. Pedí uno nuevo.');
-  }
+    errEl.textContent = e.message; errEl.hidden = false;
+  } finally { btn.disabled = false; btn.textContent = 'Ingresar'; }
 }
 
 // TABS
@@ -781,9 +742,9 @@ async function loadLog() {
 // BOOT
 (function init() {
   // Bind all event listeners first — must run regardless of auth state
-  document.getElementById('btn-send-link').addEventListener('click', sendMagicLink);
-  document.getElementById('inp-email').addEventListener('keydown', e => { if (e.key === 'Enter') sendMagicLink(); });
-  document.getElementById('btn-back-login').addEventListener('click', showLogin);
+  document.getElementById('btn-login').addEventListener('click', doLogin);
+  document.getElementById('inp-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('inp-pass').focus(); });
+  document.getElementById('inp-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
   document.getElementById('btn-logout').addEventListener('click', () => logout());
   document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   document.getElementById('q-clientes').addEventListener('input', filterClientes);
@@ -797,10 +758,6 @@ async function loadLog() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.getElementById('modal-bg').hidden) closeModal(); });
 
   // Decide which view to show
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  if (token) { verifyToken(token); return; }
-
   creds = loadCreds();
   if (creds) { showApp(); return; }
 
