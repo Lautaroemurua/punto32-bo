@@ -1,0 +1,880 @@
+<title>FacturaPro Admin</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: dark-first SPA — login → 3 tabs (clientes · solicitudes · auditoría) */
+:root {
+  --bg:      #0d0f1a;
+  --surface: #161929;
+  --card:    #1d2035;
+  --border:  #262c48;
+  --text:    #e2e8f0;
+  --muted:   #8892a4;
+  --accent:  #6366f1;
+  --acc-h:   #818cf8;
+  --ok:      #10b981;
+  --warn:    #f59e0b;
+  --danger:  #ef4444;
+  --ff-h:    'Space Grotesk', system-ui, sans-serif;
+  --ff-b:    'Inter', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:      #f1f5f9;
+    --surface: #ffffff;
+    --card:    #f8fafc;
+    --border:  #e2e8f0;
+    --text:    #0f172a;
+    --muted:   #64748b;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg:      #f1f5f9;
+  --surface: #ffffff;
+  --card:    #f8fafc;
+  --border:  #e2e8f0;
+  --text:    #0f172a;
+  --muted:   #64748b;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--ff-b);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  z-index: 11;
+  background: var(--surface);
+}
+
+/* LOGIN */
+#view-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+}
+.login-logo { font-family: var(--ff-h); font-size: 20px; font-weight: 700; letter-spacing: -.4px; margin-bottom: 2px; }
+.login-logo em { color: var(--accent); font-style: normal; }
+.login-sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+
+/* HEADER */
+.app-header {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 54px;
+  margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+}
+.app-logo { font-family: var(--ff-h); font-weight: 700; font-size: 16px; letter-spacing: -.3px; flex-shrink: 0; }
+.app-logo em { color: var(--accent); font-style: normal; }
+.app-logo span { color: var(--muted); font-weight: 500; }
+.hdr-sep { flex: 1; }
+.admin-label { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+
+/* MAIN */
+.app-main { max-width: 1160px; margin: 0 auto; padding-block: 24px; }
+
+/* TABS */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; scrollbar-width: none; }
+.tab-btn {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); font-family: var(--ff-b); font-size: 14px; font-weight: 500;
+  padding: 10px 16px; cursor: pointer; white-space: nowrap; margin-bottom: -1px;
+  transition: color .12s, border-color .12s; display: flex; align-items: center; gap: 7px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-badge {
+  background: var(--danger); color: #fff; border-radius: 999px;
+  font-size: 10px; font-weight: 700; padding: 1px 6px; min-width: 18px; text-align: center;
+}
+.tab-badge[hidden] { display: none !important; }
+
+/* SECTION TITLE */
+.section-title {
+  font-family: var(--ff-h); font-size: 13px; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .07em;
+  margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.section-count { font-size: 11px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; color: var(--muted); }
+
+/* STAT TILES */
+.stat-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.stat-tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 16px; display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 90px;
+}
+.stat-tile .num { font-family: var(--ff-h); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.stat-tile .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+
+/* TOOLBAR */
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 300px; }
+.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted); }
+.search-wrap input { padding: 7px 10px 7px 32px; }
+
+/* TABLE */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 580px; }
+thead th { background: var(--card); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--card); }
+td { padding: 10px 14px; vertical-align: middle; }
+.td-name { font-weight: 500; line-height: 1.3; }
+.td-sub { color: var(--muted); font-size: 12px; line-height: 1.3; }
+.td-r { text-align: right; }
+
+/* SOLICITUD CARDS */
+.sol-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.sol-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; transition: border-color .12s;
+}
+.sol-card.para-aprobar { border-left: 3px solid var(--warn); }
+.sol-card.propia { border-left: 3px solid var(--border); }
+.sol-card-header { display: flex; align-items: flex-start; gap: 12px; }
+.sol-card-info { flex: 1; min-width: 0; }
+.sol-card-title { font-weight: 600; font-size: 14px; }
+.sol-card-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.sol-dias {
+  font-family: var(--ff-h); font-size: 20px; font-weight: 700;
+  font-variant-numeric: tabular-nums; flex-shrink: 0; line-height: 1;
+}
+.sol-motivo {
+  margin-top: 10px; padding: 8px 12px;
+  background: var(--card); border-radius: 6px;
+  font-size: 13px; color: var(--muted); border-left: 2px solid var(--border);
+}
+.sol-motivo strong { color: var(--text); font-weight: 500; }
+.sol-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+
+/* Rechazo inline */
+.reject-form { margin-top: 10px; padding: 12px; background: var(--card); border-radius: 8px; border: 1px solid var(--border); }
+.reject-form textarea { margin-top: 6px; min-height: 60px; }
+.reject-form-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* BADGES */
+.badge { display: inline-flex; align-items: center; border-radius: 999px; font-size: 11px; font-weight: 600; padding: 2px 8px; letter-spacing: .02em; white-space: nowrap; }
+.b-green  { background: rgba(16,185,129,.14);  color: #34d399; }
+.b-yellow { background: rgba(245,158,11,.14);  color: #fbbf24; }
+.b-red    { background: rgba(239,68,68,.14);   color: #f87171; }
+.b-gray   { background: rgba(100,116,139,.14); color: #94a3b8; }
+.b-indigo { background: rgba(99,102,241,.14);  color: #a5b4fc; }
+.b-orange { background: rgba(249,115,22,.14);  color: #fb923c; }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 7px; padding: 7px 14px; font-family: var(--ff-b); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: background .12s, opacity .12s, border-color .12s; }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:not(:disabled):hover { background: var(--acc-h); }
+.btn-ok { background: rgba(16,185,129,.15); color: #34d399; border: 1px solid rgba(16,185,129,.3); }
+.btn-ok:not(:disabled):hover { background: rgba(16,185,129,.25); }
+.btn-danger { background: rgba(239,68,68,.15); color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+.btn-danger:not(:disabled):hover { background: rgba(239,68,68,.25); }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-ghost { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 5px 12px; font-size: 12px; cursor: pointer; transition: color .12s, border-color .12s; }
+.btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* FORM */
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+input, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-family: var(--ff-b); font-size: 14px; padding: 9px 12px; outline: none; transition: border-color .12s, box-shadow .12s; }
+input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
+textarea { resize: vertical; min-height: 80px; }
+.hint { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.err { font-size: 12px; color: var(--danger); margin-top: 6px; }
+
+/* MODAL */
+#modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px 24px; width: 100%; max-width: 440px; }
+.modal-title { font-family: var(--ff-h); font-size: 17px; font-weight: 600; margin-bottom: 2px; text-wrap: balance; }
+.modal-sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+
+/* CHART */
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px 14px; margin-bottom: 18px; }
+.chart-heading { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 14px; }
+
+/* STATES */
+.empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+.empty-icon { font-size: 30px; margin-bottom: 10px; }
+.loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--muted); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; flex-shrink: 0; }
+
+/* TOAST */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 18px; font-size: 13px; font-weight: 500; z-index: 200;
+  transition: transform .25s, opacity .25s; opacity: 0; white-space: nowrap;
+  box-shadow: 0 4px 24px rgba(0,0,0,.3);
+}
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+#toast.ok   { border-color: rgba(16,185,129,.4); color: #34d399; }
+#toast.bad  { border-color: rgba(239,68,68,.4);  color: #f87171; }
+
+/* RESPONSIVE */
+@media (max-width: 600px) {
+  .login-card { padding: 28px 18px; }
+  .app-main { padding-block: 16px; }
+  .admin-label { display: none; }
+  .stat-tile .num { font-size: 20px; }
+  .modal { padding: 20px 16px; }
+  .modal-actions { flex-direction: column-reverse; }
+  .modal-actions .btn { justify-content: center; }
+  .sol-dias { font-size: 16px; }
+}
+</style>
+
+<!-- LOGIN -->
+<div id="view-login" hidden>
+  <div class="login-card">
+    <div class="login-logo"><em>Factura</em>Pro</div>
+    <div class="login-sub">Panel de administración</div>
+    <div class="form-group">
+      <label>Email de admin</label>
+      <input id="inp-email" type="email" placeholder="admin@ejemplo.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Secret</label>
+      <input id="inp-secret" type="password" placeholder="••••••••" autocomplete="current-password">
+      <div id="login-err" class="err" hidden></div>
+    </div>
+    <button class="btn btn-primary" id="btn-login" style="width:100%;justify-content:center;padding:10px 14px;">
+      Ingresar
+    </button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="view-app" hidden>
+  <header class="app-header">
+    <div class="app-logo"><em>Factura</em>Pro <span>Admin</span></div>
+    <div class="hdr-sep"></div>
+    <div class="admin-label" id="hdr-email"></div>
+    <button class="btn-ghost" id="btn-logout">Salir</button>
+  </header>
+
+  <main class="app-main">
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="clientes" role="tab">Clientes</button>
+      <button class="tab-btn" data-tab="solicitudes" role="tab">
+        Solicitudes
+        <span class="tab-badge" id="badge-solicitudes" hidden>0</span>
+      </button>
+      <button class="tab-btn" data-tab="auditoria" role="tab">Auditoría</button>
+    </div>
+
+    <!-- CLIENTES -->
+    <div id="tab-clientes">
+      <div class="stat-row" id="stats"></div>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="q-clientes" type="search" placeholder="Nombre o email…">
+        </div>
+        <button class="btn btn-outline btn-sm" id="btn-refresh-c">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Actualizar
+        </button>
+      </div>
+      <div class="table-wrap">
+        <div id="st-clientes"></div>
+        <table id="tbl-clientes" hidden>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Plan</th>
+              <th class="td-r">Días</th>
+              <th>Estado</th>
+              <th>Modif.</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-c"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SOLICITUDES -->
+    <div id="tab-solicitudes" hidden>
+      <div class="toolbar" style="margin-bottom:20px">
+        <button class="btn btn-outline btn-sm" id="btn-refresh-s">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Actualizar
+        </button>
+      </div>
+
+      <div id="st-solicitudes"></div>
+
+      <!-- Para tu aprobación -->
+      <div id="sec-para-aprobar" hidden>
+        <div class="section-title">
+          Para tu aprobación
+          <span class="section-count" id="cnt-para-aprobar">0</span>
+        </div>
+        <div class="sol-list" id="list-para-aprobar"></div>
+      </div>
+
+      <!-- Mis solicitudes -->
+      <div id="sec-propias" hidden>
+        <div class="section-title">
+          Mis solicitudes
+          <span class="section-count" id="cnt-propias">0</span>
+        </div>
+        <div class="sol-list" id="list-propias"></div>
+      </div>
+    </div>
+
+    <!-- AUDITORÍA -->
+    <div id="tab-auditoria" hidden>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="q-log" type="search" placeholder="Email, motivo…">
+        </div>
+        <button class="btn btn-outline btn-sm" id="btn-refresh-l">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Actualizar
+        </button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-heading">Cambios aprobados — últimas 8 semanas</div>
+        <canvas id="chart-audit" height="80"></canvas>
+      </div>
+      <div class="table-wrap">
+        <div id="st-log"></div>
+        <table id="tbl-log" hidden>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Admin</th>
+              <th class="td-r">Δ Días</th>
+              <th>Motivo / Trazabilidad</th>
+              <th>Venc. después</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-l"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: SOLICITAR AJUSTE DE DÍAS -->
+<div id="modal-bg" hidden>
+  <div class="modal">
+    <div class="modal-title" id="m-name">Solicitar ajuste de días</div>
+    <div class="modal-sub" id="m-email"></div>
+    <div class="form-group">
+      <label>Días a agregar / quitar</label>
+      <input id="m-dias" type="number" placeholder="30 para sumar · -15 para restar">
+      <div class="hint">Positivo suma, negativo resta. No puede ser cero.</div>
+    </div>
+    <div class="form-group">
+      <label>Motivo <span style="color:var(--danger)">*</span></label>
+      <textarea id="m-motivo" placeholder="Describa el motivo del ajuste (mínimo 3 caracteres)…"></textarea>
+      <div id="m-err" class="err" hidden></div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--muted);margin-bottom:4px;">
+      Esta solicitud deberá ser aprobada por el otro administrador antes de aplicarse.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="btn-cancel-m">Cancelar</button>
+      <button class="btn btn-primary" id="btn-ok-m">Enviar solicitud</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'https://factura-pro-backend.onrender.com';
+
+let creds = null;
+let clientes = [];
+let logItems = [];
+let solicitudes = [];
+let selectedId = null;
+let auditChart = null;
+let rejectOpenId = null;
+let refreshTimer = null;
+
+// STORAGE
+function loadCreds() { try { const s = localStorage.getItem('fp_adm'); return s ? JSON.parse(s) : null; } catch { return null; } }
+function saveCreds(e, s) { try { localStorage.setItem('fp_adm', JSON.stringify({ email: e, secret: s })); } catch {} }
+function clearCreds() { try { localStorage.removeItem('fp_adm'); } catch {} }
+
+// TOAST
+let toastTimer;
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// FETCH
+async function api(path, opts = {}) {
+  if (!creds) throw new Error('no-auth');
+  const r = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'x-admin-secret': creds.secret, 'x-admin-email': creds.email, ...(opts.headers || {}) },
+  });
+  if (r.status === 401) { logout('Sesión inválida. Ingresá nuevamente.'); throw new Error('unauth'); }
+  if (r.status === 403) { const b = await r.json().catch(() => ({})); throw new Error(b.error || 'No autorizado'); }
+  if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.error || `Error ${r.status}`); }
+  return r.json();
+}
+
+// VIEWS
+function showLogin(msg) {
+  document.getElementById('view-login').hidden = false;
+  document.getElementById('view-app').hidden = true;
+  const el = document.getElementById('login-err');
+  el.textContent = msg || ''; el.hidden = !msg;
+  clearInterval(refreshTimer);
+}
+function showApp() {
+  document.getElementById('view-login').hidden = true;
+  document.getElementById('view-app').hidden = false;
+  document.getElementById('hdr-email').textContent = creds.email;
+  switchTab('clientes');
+  refreshTimer = setInterval(() => { if (!document.getElementById('tab-solicitudes').hidden) loadSolicitudes(false); }, 30000);
+}
+function logout(msg) { clearCreds(); creds = null; clearInterval(refreshTimer); showLogin(msg); }
+
+// TABS
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  ['clientes','solicitudes','auditoria'].forEach(t => document.getElementById(`tab-${t}`).hidden = t !== tab);
+  if (tab === 'clientes')    loadClientes();
+  if (tab === 'solicitudes') loadSolicitudes(true);
+  if (tab === 'auditoria')   loadLog();
+}
+
+// UTILS
+const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function fmtDate(iso) { if (!iso) return '—'; return new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' }); }
+function fmtRel(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), d = Math.floor(diff / 86400000);
+  if (m < 2) return 'justo ahora'; if (m < 60) return `hace ${m}m`; if (h < 24) return `hace ${h}h`; return `hace ${d}d`;
+}
+
+function clientStatus(c) {
+  if (!c.activo && !c.vencimiento) return { lbl:'Inactivo', cls:'b-gray', dias: null };
+  if (!c.activo) { const d = Math.ceil((new Date(c.vencimiento) - Date.now()) / 86400000); return { lbl:'Vencido', cls:'b-red', dias: d }; }
+  if (c.dayleft === 9999) return { lbl:'Sin fecha', cls:'b-gray', dias: null };
+  if (c.dayleft <= 7) return { lbl:'Por vencer', cls:'b-yellow', dias: c.dayleft };
+  return { lbl:'Activo', cls:'b-green', dias: c.dayleft };
+}
+
+// CLIENTES
+function renderStats(list) {
+  const activos  = list.filter(c => c.activo && c.dayleft !== 9999 && c.dayleft > 0).length;
+  const vencidos = list.filter(c => !c.activo && c.vencimiento).length;
+  const sinFecha = list.filter(c => c.activo && c.dayleft === 9999).length;
+  const manuales = list.filter(c => c.modificado_manualmente).length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-tile"><div class="num">${list.length}</div><div class="lbl">Total</div></div>
+    <div class="stat-tile"><div class="num" style="color:var(--ok)">${activos}</div><div class="lbl">Activos</div></div>
+    <div class="stat-tile"><div class="num" style="color:var(--danger)">${vencidos}</div><div class="lbl">Vencidos</div></div>
+    <div class="stat-tile"><div class="num" style="color:var(--warn)">${sinFecha}</div><div class="lbl">Sin fecha</div></div>
+    <div class="stat-tile"><div class="num" style="color:var(--accent)">${manuales}</div><div class="lbl">Manuales</div></div>
+  `;
+}
+
+function renderClientes(list) {
+  const st = document.getElementById('st-clientes'), tbl = document.getElementById('tbl-clientes'), tb = document.getElementById('tbody-c');
+  if (!list.length) { st.innerHTML = '<div class="empty"><div class="empty-icon">🧑‍💼</div><p>Sin resultados.</p></div>'; st.hidden = false; tbl.hidden = true; return; }
+  st.hidden = true; tbl.hidden = false;
+  tb.innerHTML = list.map(c => {
+    const { lbl, cls, dias } = clientStatus(c);
+    const diasHtml = dias === null ? '<span style="color:var(--muted)">—</span>'
+      : `<span style="font-variant-numeric:tabular-nums;font-weight:600;color:${dias <= 0 ? 'var(--danger)' : dias <= 7 ? 'var(--warn)' : 'var(--ok)'}">${dias > 0 ? '+' : ''}${dias}</span>`;
+    const manualBadge = c.modificado_manualmente ? '<span class="badge b-indigo">Manual</span>' : '';
+    return `<tr>
+      <td><div class="td-name">${esc(c.nombre || '—')}</div><div class="td-sub">${esc(c.email)}</div></td>
+      <td style="color:var(--muted)">${esc(c.plan || '—')}</td>
+      <td class="td-r">${diasHtml}</td>
+      <td><span class="badge ${cls}">${lbl}</span></td>
+      <td>${manualBadge}</td>
+      <td><button class="btn btn-outline btn-sm btn-sol" data-id="${c.id}" data-nombre="${esc(c.nombre || c.email)}" data-email="${esc(c.email)}">Solicitar ajuste</button></td>
+    </tr>`;
+  }).join('');
+  tb.querySelectorAll('.btn-sol').forEach(b => b.addEventListener('click', () => openModal(b.dataset)));
+}
+
+function filterClientes() {
+  const q = (document.getElementById('q-clientes').value || '').toLowerCase();
+  renderClientes(q ? clientes.filter(c => (c.nombre||'').toLowerCase().includes(q) || c.email.toLowerCase().includes(q)) : clientes);
+}
+
+async function loadClientes() {
+  const st = document.getElementById('st-clientes'), tbl = document.getElementById('tbl-clientes');
+  st.innerHTML = '<div class="loading"><div class="spinner"></div> Cargando…</div>'; st.hidden = false; tbl.hidden = true;
+  try {
+    const d = await api('/clientes');
+    clientes = d.clientes || [];
+    renderStats(clientes); filterClientes();
+  } catch (e) { if (e.message !== 'unauth') st.innerHTML = `<div class="empty"><p style="color:var(--danger)">${esc(e.message)}</p></div>`; }
+}
+
+// MODAL (crear solicitud)
+function openModal({ id, nombre, email }) {
+  selectedId = id;
+  document.getElementById('m-name').textContent = `Solicitar ajuste para ${nombre}`;
+  document.getElementById('m-email').textContent = email;
+  document.getElementById('m-dias').value = ''; document.getElementById('m-motivo').value = '';
+  document.getElementById('m-err').hidden = true;
+  document.getElementById('modal-bg').hidden = false;
+  document.getElementById('m-dias').focus();
+}
+function closeModal() { document.getElementById('modal-bg').hidden = true; selectedId = null; }
+
+async function confirmModal() {
+  const dias = parseInt(document.getElementById('m-dias').value, 10);
+  const motivo = document.getElementById('m-motivo').value.trim();
+  const errEl = document.getElementById('m-err');
+  errEl.hidden = true;
+  if (!dias || isNaN(dias) || dias === 0) { errEl.textContent = 'El número de días no puede ser cero.'; errEl.hidden = false; return; }
+  if (motivo.length < 3) { errEl.textContent = 'El motivo es obligatorio (mínimo 3 caracteres).'; errEl.hidden = false; return; }
+  const btn = document.getElementById('btn-ok-m');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    await api('/clientes/solicitudes', { method: 'POST', body: JSON.stringify({ clienteId: Number(selectedId), datos: { dias, motivo } }) });
+    closeModal();
+    toast('Solicitud enviada — esperando aprobación del otro admin', 'ok');
+    setTimeout(() => switchTab('solicitudes'), 800);
+  } catch (e) {
+    if (e.message !== 'unauth') { errEl.textContent = e.message; errEl.hidden = false; }
+  } finally { btn.disabled = false; btn.textContent = 'Enviar solicitud'; }
+}
+
+// SOLICITUDES
+function shortName(email) { const n = email.split('@')[0]; return n.length > 18 ? n.slice(0,18)+'…' : n; }
+
+function diasColor(d) { return d > 0 ? 'var(--ok)' : 'var(--danger)'; }
+function diasSign(d) { return d > 0 ? `+${d}` : String(d); }
+
+function estadoBadge(estado) {
+  if (estado === 'pendiente')  return '<span class="badge b-yellow">Pendiente</span>';
+  if (estado === 'aprobada')   return '<span class="badge b-green">Aprobada</span>';
+  if (estado === 'rechazada')  return '<span class="badge b-red">Rechazada</span>';
+  if (estado === 'cancelada')  return '<span class="badge b-gray">Cancelada</span>';
+  return `<span class="badge b-gray">${esc(estado)}</span>`;
+}
+
+function renderSolCard(sol, tipo) {
+  const isParaAprobar = tipo === 'para-aprobar';
+  const dias = sol.datos?.dias ?? 0;
+  const motivo = sol.datos?.motivo ?? '';
+  const clienteLabel = sol.cliente_nombre ? `${sol.cliente_nombre} (${sol.cliente_email})` : (sol.cliente_email || `#${sol.cliente_id}`);
+  const metaText = isParaAprobar
+    ? `Solicitado por <strong>${esc(shortName(sol.solicitante))}</strong> · ${fmtRel(sol.created_at)}`
+    : `${estadoBadge(sol.estado)} ${sol.estado === 'pendiente' ? '· esperando aprobación del otro admin' : (sol.aprobador ? `· ${sol.estado === 'aprobada' ? 'aprobado' : 'rechazado'} por <strong>${esc(shortName(sol.aprobador))}</strong> · ${fmtRel(sol.updated_at)}` : '')}`;
+
+  let actionsHtml = '';
+  if (isParaAprobar && sol.estado === 'pendiente') {
+    actionsHtml = `
+      <div class="sol-actions">
+        <button class="btn btn-ok btn-sm btn-aprobar" data-id="${sol.id}">✓ Aprobar</button>
+        <button class="btn btn-danger btn-sm btn-rechazar-open" data-id="${sol.id}">✕ Rechazar</button>
+      </div>
+      <div class="reject-form" id="reject-form-${sol.id}" hidden>
+        <label>Motivo del rechazo <span style="color:var(--muted)">(opcional)</span></label>
+        <textarea id="reject-txt-${sol.id}" placeholder="Explicá por qué rechazás esta solicitud…"></textarea>
+        <div class="reject-form-actions">
+          <button class="btn btn-outline btn-sm btn-rechazar-cancel" data-id="${sol.id}">Cancelar</button>
+          <button class="btn btn-danger btn-sm btn-rechazar-confirm" data-id="${sol.id}">Confirmar rechazo</button>
+        </div>
+      </div>`;
+  } else if (!isParaAprobar && sol.estado === 'pendiente') {
+    actionsHtml = `<div class="sol-actions"><button class="btn btn-outline btn-sm btn-cancelar" data-id="${sol.id}">Cancelar solicitud</button></div>`;
+  } else if (sol.estado === 'rechazada' && sol.motivo_rechazo) {
+    actionsHtml = `<div class="sol-motivo" style="border-left-color:var(--danger);margin-top:8px"><strong>Motivo de rechazo:</strong> ${esc(sol.motivo_rechazo)}</div>`;
+  }
+
+  return `
+    <div class="sol-card ${isParaAprobar ? 'para-aprobar' : 'propia'}" id="sol-card-${sol.id}">
+      <div class="sol-card-header">
+        <div class="sol-card-info">
+          <div class="sol-card-title">${esc(clienteLabel)}</div>
+          <div class="sol-card-meta">${metaText}</div>
+        </div>
+        <div class="sol-dias" style="color:${diasColor(dias)}">${diasSign(dias)}d</div>
+      </div>
+      <div class="sol-motivo"><strong>Motivo:</strong> ${esc(motivo)}</div>
+      ${actionsHtml}
+    </div>`;
+}
+
+function bindSolActions(container) {
+  container.querySelectorAll('.btn-aprobar').forEach(b => b.addEventListener('click', () => aprobar(b.dataset.id)));
+  container.querySelectorAll('.btn-rechazar-open').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.id;
+    if (rejectOpenId && rejectOpenId !== id) {
+      const prev = document.getElementById(`reject-form-${rejectOpenId}`);
+      if (prev) prev.hidden = true;
+    }
+    const form = document.getElementById(`reject-form-${id}`);
+    if (form) { form.hidden = !form.hidden; rejectOpenId = form.hidden ? null : id; }
+  }));
+  container.querySelectorAll('.btn-rechazar-cancel').forEach(b => b.addEventListener('click', () => {
+    const form = document.getElementById(`reject-form-${b.dataset.id}`);
+    if (form) form.hidden = true; rejectOpenId = null;
+  }));
+  container.querySelectorAll('.btn-rechazar-confirm').forEach(b => b.addEventListener('click', () => {
+    const txt = document.getElementById(`reject-txt-${b.dataset.id}`);
+    rechazar(b.dataset.id, txt ? txt.value.trim() : '');
+  }));
+  container.querySelectorAll('.btn-cancelar').forEach(b => b.addEventListener('click', () => cancelar(b.dataset.id)));
+}
+
+function renderSolicitudes() {
+  const paraAprobar = solicitudes.filter(s => s.solicitante !== creds.email && s.estado === 'pendiente');
+  const propias     = solicitudes.filter(s => s.solicitante === creds.email);
+
+  // Badge en tab
+  const badge = document.getElementById('badge-solicitudes');
+  if (paraAprobar.length > 0) { badge.textContent = paraAprobar.length; badge.hidden = false; } else { badge.hidden = true; }
+
+  const secAprobar = document.getElementById('sec-para-aprobar');
+  const secPropias = document.getElementById('sec-propias');
+  const stDiv      = document.getElementById('st-solicitudes');
+
+  stDiv.hidden = true;
+
+  if (paraAprobar.length) {
+    document.getElementById('cnt-para-aprobar').textContent = paraAprobar.length;
+    const list = document.getElementById('list-para-aprobar');
+    list.innerHTML = paraAprobar.map(s => renderSolCard(s, 'para-aprobar')).join('');
+    bindSolActions(list);
+    secAprobar.hidden = false;
+  } else { secAprobar.hidden = true; }
+
+  if (propias.length) {
+    document.getElementById('cnt-propias').textContent = propias.length;
+    const list = document.getElementById('list-propias');
+    list.innerHTML = propias.map(s => renderSolCard(s, 'propia')).join('');
+    bindSolActions(list);
+    secPropias.hidden = false;
+  } else { secPropias.hidden = true; }
+
+  if (!paraAprobar.length && !propias.length) {
+    stDiv.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><p>No hay solicitudes pendientes.</p></div>';
+    stDiv.hidden = false;
+  }
+}
+
+async function loadSolicitudes(showSpinner = true) {
+  if (showSpinner) {
+    document.getElementById('st-solicitudes').innerHTML = '<div class="loading"><div class="spinner"></div> Cargando solicitudes…</div>';
+    document.getElementById('st-solicitudes').hidden = false;
+    document.getElementById('sec-para-aprobar').hidden = true;
+    document.getElementById('sec-propias').hidden = true;
+  }
+  try {
+    const d = await api('/clientes/solicitudes');
+    solicitudes = d.solicitudes || [];
+    renderSolicitudes();
+  } catch (e) {
+    if (e.message !== 'unauth') {
+      document.getElementById('st-solicitudes').innerHTML = `<div class="empty"><p style="color:var(--danger)">${esc(e.message)}</p></div>`;
+      document.getElementById('st-solicitudes').hidden = false;
+    }
+  }
+}
+
+async function aprobar(id) {
+  const btn = document.querySelector(`.btn-aprobar[data-id="${id}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Aprobando…'; }
+  try {
+    await api(`/clientes/solicitudes/${id}/aprobar`, { method: 'PATCH' });
+    toast('Solicitud aprobada y cambio aplicado', 'ok');
+    await loadSolicitudes(false);
+  } catch (e) {
+    toast(e.message, 'bad');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Aprobar'; }
+  }
+}
+
+async function rechazar(id, motivoRechazo) {
+  const btn = document.querySelector(`.btn-rechazar-confirm[data-id="${id}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Rechazando…'; }
+  try {
+    await api(`/clientes/solicitudes/${id}/rechazar`, { method: 'PATCH', body: JSON.stringify({ motivo_rechazo: motivoRechazo }) });
+    toast('Solicitud rechazada', 'ok');
+    await loadSolicitudes(false);
+  } catch (e) {
+    toast(e.message, 'bad');
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar rechazo'; }
+  }
+}
+
+async function cancelar(id) {
+  const btn = document.querySelector(`.btn-cancelar[data-id="${id}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelando…'; }
+  try {
+    await api(`/clientes/solicitudes/${id}`, { method: 'DELETE' });
+    toast('Solicitud cancelada', 'ok');
+    await loadSolicitudes(false);
+  } catch (e) {
+    toast(e.message, 'bad');
+    if (btn) { btn.disabled = false; btn.textContent = 'Cancelar solicitud'; }
+  }
+}
+
+// LOG + CHART
+function shortAdminName(email) { const n = email.split('@')[0]; return n.length > 14 ? n.slice(0,14)+'…' : n; }
+
+function renderLog(list) {
+  const st = document.getElementById('st-log'), tbl = document.getElementById('tbl-log'), tb = document.getElementById('tbody-l');
+  if (!list.length) { st.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Sin registros.</p></div>'; st.hidden = false; tbl.hidden = true; return; }
+  st.hidden = true; tbl.hidden = false;
+  tb.innerHTML = list.map(e => {
+    const d = e.dias_delta, col = d > 0 ? 'var(--ok)' : 'var(--danger)';
+    return `<tr>
+      <td><div class="td-name">${esc(e.email || `#${e.cliente_id}`)}</div></td>
+      <td title="${esc(e.admin_email)}">${esc(shortAdminName(e.admin_email))}</td>
+      <td class="td-r"><span style="color:${col};font-weight:600;font-variant-numeric:tabular-nums">${d > 0 ? '+' : ''}${d}</span></td>
+      <td style="max-width:260px;white-space:normal;word-break:break-word;font-size:12px">${esc(e.motivo)}</td>
+      <td style="font-variant-numeric:tabular-nums;white-space:nowrap">${fmtDate(e.vencimiento_despues)}</td>
+      <td style="color:var(--muted);white-space:nowrap">${fmtDate(e.created_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildChart(list) {
+  const canvas = document.getElementById('chart-audit');
+  if (auditChart) { auditChart.destroy(); auditChart = null; }
+  const now = new Date();
+  const weeks = Array.from({ length: 8 }, (_, i) => {
+    const start = new Date(now); start.setDate(start.getDate() - (7 - i) * 7); start.setHours(0,0,0,0);
+    const end = new Date(start); end.setDate(end.getDate() + 7);
+    return { label: start.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }), start, end };
+  });
+  const admins = [...new Set(list.map(e => e.admin_email))].sort();
+  const pal = [{ bg:'rgba(99,102,241,.75)',border:'rgb(99,102,241)' },{ bg:'rgba(16,185,129,.75)',border:'rgb(16,185,129)' },{ bg:'rgba(245,158,11,.75)',border:'rgb(245,158,11)' }];
+  const isDark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const tc = isDark ? '#8892a4' : '#64748b', gc = isDark ? 'rgba(38,44,72,.5)' : 'rgba(226,232,240,.7)';
+  auditChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: weeks.map(w => w.label),
+      datasets: admins.map((email, i) => ({
+        label: shortAdminName(email),
+        data: weeks.map(w => list.filter(e => e.admin_email === email && new Date(e.created_at) >= w.start && new Date(e.created_at) < w.end).length),
+        backgroundColor: pal[i % pal.length].bg, borderColor: pal[i % pal.length].border, borderWidth: 1, borderRadius: 3,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { labels: { color: tc, font: { family:"'Inter',sans-serif", size:12 }, boxWidth:12, boxHeight:12 } },
+        tooltip: { backgroundColor: isDark?'#1d2035':'#fff', titleColor: isDark?'#e2e8f0':'#0f172a', bodyColor: tc, borderColor: isDark?'#262c48':'#e2e8f0', borderWidth: 1 },
+      },
+      scales: {
+        x: { grid: { color: gc }, ticks: { color: tc, font: { family:"'Inter',sans-serif", size:11 } } },
+        y: { beginAtZero: true, grid: { color: gc }, ticks: { color: tc, font: { family:"'Inter',sans-serif", size:11 }, stepSize: 1 } },
+      },
+    },
+  });
+}
+
+function filterLog() {
+  const q = (document.getElementById('q-log').value || '').toLowerCase();
+  renderLog(q ? logItems.filter(e => (e.email||'').toLowerCase().includes(q) || (e.motivo||'').toLowerCase().includes(q) || (e.admin_email||'').toLowerCase().includes(q)) : logItems);
+}
+
+async function loadLog() {
+  const st = document.getElementById('st-log'), tbl = document.getElementById('tbl-log');
+  st.innerHTML = '<div class="loading"><div class="spinner"></div> Cargando auditoría…</div>'; st.hidden = false; tbl.hidden = true;
+  try {
+    const d = await api('/clientes/log');
+    logItems = d.log || [];
+    buildChart(logItems); filterLog();
+  } catch (e) { if (e.message !== 'unauth') st.innerHTML = `<div class="empty"><p style="color:var(--danger)">${esc(e.message)}</p></div>`; }
+}
+
+// LOGIN
+async function tryLogin() {
+  const email = document.getElementById('inp-email').value.trim().toLowerCase();
+  const secret = document.getElementById('inp-secret').value;
+  const errEl = document.getElementById('login-err');
+  if (!email || !secret) return;
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = 'Verificando…'; errEl.hidden = true;
+  creds = { email, secret };
+  try {
+    await api('/clientes/solicitudes?limit=1');
+    saveCreds(email, secret);
+    showApp();
+  } catch (e) {
+    creds = null;
+    if (e.message !== 'unauth') { errEl.textContent = e.message; errEl.hidden = false; }
+  } finally { btn.disabled = false; btn.textContent = 'Ingresar'; }
+}
+
+// BOOT
+(function init() {
+  creds = loadCreds();
+  if (creds) showApp(); else showLogin();
+
+  document.getElementById('btn-login').addEventListener('click', tryLogin);
+  document.getElementById('inp-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('inp-secret').focus(); });
+  document.getElementById('inp-secret').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+  document.getElementById('btn-logout').addEventListener('click', () => logout());
+  document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  document.getElementById('q-clientes').addEventListener('input', filterClientes);
+  document.getElementById('q-log').addEventListener('input', filterLog);
+  document.getElementById('btn-refresh-c').addEventListener('click', loadClientes);
+  document.getElementById('btn-refresh-s').addEventListener('click', () => loadSolicitudes(true));
+  document.getElementById('btn-refresh-l').addEventListener('click', loadLog);
+  document.getElementById('btn-cancel-m').addEventListener('click', closeModal);
+  document.getElementById('btn-ok-m').addEventListener('click', confirmModal);
+  document.getElementById('modal-bg').addEventListener('click', e => { if (e.target.id === 'modal-bg') closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.getElementById('modal-bg').hidden) closeModal(); });
+})();
+</script>
