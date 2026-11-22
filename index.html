@@ -272,6 +272,10 @@ textarea { resize: vertical; min-height: 80px; }
         <span class="tab-badge" id="badge-sol" hidden>0</span>
       </button>
       <button class="tab-btn" data-tab="auditoria" role="tab">Auditoría</button>
+      <button class="tab-btn" data-tab="fiscales" role="tab">
+        Fiscales
+        <span class="tab-badge" id="badge-fiscales" hidden>0</span>
+      </button>
     </div>
 
     <!-- CLIENTES -->
@@ -352,6 +356,23 @@ textarea { resize: vertical; min-height: 80px; }
           <tbody id="tbody-l"></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- SOLICITUDES FISCALES -->
+    <div id="tab-fiscales" hidden>
+      <div class="toolbar" style="margin-bottom:20px">
+        <select id="sel-fiscal-estado" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 12px;font-size:13px;font-family:var(--ff-b);cursor:pointer">
+          <option value="pendiente">Pendientes</option>
+          <option value="aprobada">Aprobadas</option>
+          <option value="rechazada">Rechazadas</option>
+        </select>
+        <button class="btn btn-outline btn-sm" id="btn-refresh-f">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Actualizar
+        </button>
+      </div>
+      <div id="st-fiscales"></div>
+      <div class="sol-list" id="list-fiscales"></div>
     </div>
   </main>
 </div>
@@ -492,10 +513,11 @@ async function verifyToken(token) {
 // TABS
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  ['clientes','solicitudes','auditoria'].forEach(t => document.getElementById(`tab-${t}`).hidden = t !== tab);
+  ['clientes','solicitudes','auditoria','fiscales'].forEach(t => document.getElementById(`tab-${t}`).hidden = t !== tab);
   if (tab === 'clientes')    loadClientes();
   if (tab === 'solicitudes') loadSolicitudes(true);
   if (tab === 'auditoria')   loadLog();
+  if (tab === 'fiscales')    loadSolicitudesFiscales(true);
 }
 
 // UTILS
@@ -774,6 +796,123 @@ async function loadLog() {
   } catch (e) { if (e.message !== 'unauth') st.innerHTML = `<div class="empty"><p style="color:var(--danger)">${esc(e.message)}</p></div>`; }
 }
 
+// SOLICITUDES FISCALES
+let solicitudesFiscales = [];
+let fiscalRejectOpenId = null;
+
+function renderFiscalCard(sol) {
+  const isPendiente = sol.estado === 'pendiente';
+  const cliente = sol.razon_social ? `${sol.razon_social} (${sol.email})` : sol.email;
+  const cuit = sol.numero_documento ? `CUIT: ${sol.numero_documento}` : '';
+  const estadoHtml = estadoBadge(sol.estado);
+  const metaHtml = isPendiente
+    ? `Recibida ${fmtRel(sol.creado_en)}`
+    : `${estadoHtml}${sol.resuelto_por ? ` · ${esc(sol.resuelto_por.split('@')[0])} · ${fmtRel(sol.resuelto_en)}` : ''}`;
+
+  let actionsHtml = '';
+  if (isPendiente) {
+    actionsHtml = `
+      <div class="sol-actions">
+        <button class="btn btn-ok btn-sm btn-aprobar-f" data-id="${sol.id}">✓ Aprobar</button>
+        <button class="btn btn-danger btn-sm btn-rechazar-f-open" data-id="${sol.id}">✕ Rechazar</button>
+      </div>
+      <div class="reject-form" id="fiscal-reject-form-${sol.id}" hidden>
+        <label>Motivo del rechazo <span style="color:var(--danger)">*</span></label>
+        <textarea id="fiscal-reject-txt-${sol.id}" placeholder="Explicá por qué rechazás esta solicitud…"></textarea>
+        <div class="reject-form-actions">
+          <button class="btn btn-outline btn-sm btn-rechazar-f-cancel" data-id="${sol.id}">Cancelar</button>
+          <button class="btn btn-danger btn-sm btn-rechazar-f-confirm" data-id="${sol.id}">Confirmar rechazo</button>
+        </div>
+      </div>`;
+  } else if (sol.estado === 'rechazada' && sol.motivo_admin) {
+    actionsHtml = `<div class="sol-motivo" style="border-left-color:var(--danger);margin-top:8px"><strong>Motivo de rechazo:</strong> ${esc(sol.motivo_admin)}</div>`;
+  }
+
+  return `
+    <div class="sol-card ${isPendiente ? 'para-aprobar' : ''}" id="fiscal-card-${sol.id}">
+      <div class="sol-card-header">
+        <div class="sol-card-info">
+          <div class="sol-card-title">${esc(cliente)}</div>
+          <div class="sol-card-meta">${esc(cuit)}${cuit ? ' · ' : ''}${metaHtml}</div>
+        </div>
+        <div style="flex-shrink:0;display:flex;align-items:center"><span class="badge b-indigo" style="font-size:11px">Fiscal</span></div>
+      </div>
+      ${sol.motivo_cliente ? `<div class="sol-motivo"><strong>Motivo del cliente:</strong> ${esc(sol.motivo_cliente)}</div>` : ''}
+      ${actionsHtml}
+    </div>`;
+}
+
+function bindFiscalActions(container) {
+  container.querySelectorAll('.btn-aprobar-f').forEach(b => b.addEventListener('click', () => aprobarFiscal(b.dataset.id)));
+  container.querySelectorAll('.btn-rechazar-f-open').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.id;
+    if (fiscalRejectOpenId && fiscalRejectOpenId !== id) {
+      const p = document.getElementById(`fiscal-reject-form-${fiscalRejectOpenId}`); if (p) p.hidden = true;
+    }
+    const f = document.getElementById(`fiscal-reject-form-${id}`);
+    if (f) { f.hidden = !f.hidden; fiscalRejectOpenId = f.hidden ? null : id; }
+  }));
+  container.querySelectorAll('.btn-rechazar-f-cancel').forEach(b => b.addEventListener('click', () => {
+    const f = document.getElementById(`fiscal-reject-form-${b.dataset.id}`); if (f) f.hidden = true; fiscalRejectOpenId = null;
+  }));
+  container.querySelectorAll('.btn-rechazar-f-confirm').forEach(b => b.addEventListener('click', () => {
+    const txt = document.getElementById(`fiscal-reject-txt-${b.dataset.id}`);
+    rechazarFiscal(b.dataset.id, txt ? txt.value.trim() : '');
+  }));
+}
+
+function renderSolicitudesFiscales() {
+  const st = document.getElementById('st-fiscales');
+  const list = document.getElementById('list-fiscales');
+  const pendientes = solicitudesFiscales.filter(s => s.estado === 'pendiente');
+  const badge = document.getElementById('badge-fiscales');
+  if (pendientes.length) { badge.textContent = pendientes.length; badge.hidden = false; } else { badge.hidden = true; }
+  if (!solicitudesFiscales.length) {
+    st.innerHTML = '<div class="empty"><div class="empty-icon">🧾</div><p>No hay solicitudes fiscales.</p></div>';
+    st.hidden = false; list.innerHTML = ''; return;
+  }
+  st.hidden = true;
+  list.innerHTML = solicitudesFiscales.map(s => renderFiscalCard(s)).join('');
+  bindFiscalActions(list);
+}
+
+async function loadSolicitudesFiscales(showSpinner = true) {
+  const st = document.getElementById('st-fiscales'), list = document.getElementById('list-fiscales');
+  if (showSpinner) { st.innerHTML = '<div class="loading"><div class="spinner"></div> Cargando…</div>'; st.hidden = false; list.innerHTML = ''; }
+  const estado = document.getElementById('sel-fiscal-estado').value;
+  try {
+    const d = await api(`/admin/solicitudes-fiscales?estado=${encodeURIComponent(estado)}`);
+    solicitudesFiscales = d.solicitudes || []; renderSolicitudesFiscales();
+  } catch (e) {
+    if (e.message !== 'unauth') { st.innerHTML = `<div class="empty"><p style="color:var(--danger)">${esc(e.message)}</p></div>`; st.hidden = false; }
+  }
+}
+
+async function aprobarFiscal(id) {
+  const btn = document.querySelector(`.btn-aprobar-f[data-id="${id}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Aprobando…'; }
+  try {
+    await api(`/admin/solicitudes-fiscales/${id}/aprobar`, { method: 'POST' });
+    toast('Solicitud fiscal aprobada — el cliente puede editar sus datos', 'ok');
+    await loadSolicitudesFiscales(false);
+  } catch (e) {
+    toast(e.message, 'bad'); if (btn) { btn.disabled = false; btn.textContent = '✓ Aprobar'; }
+  }
+}
+
+async function rechazarFiscal(id, motivo) {
+  if (!motivo) { toast('El motivo de rechazo es obligatorio', 'bad'); return; }
+  const btn = document.querySelector(`.btn-rechazar-f-confirm[data-id="${id}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Rechazando…'; }
+  try {
+    await api(`/admin/solicitudes-fiscales/${id}/rechazar`, { method: 'POST', body: JSON.stringify({ motivo }) });
+    toast('Solicitud fiscal rechazada', 'ok');
+    await loadSolicitudesFiscales(false);
+  } catch (e) {
+    toast(e.message, 'bad'); if (btn) { btn.disabled = false; btn.textContent = 'Confirmar rechazo'; }
+  }
+}
+
 // BOOT
 (function init() {
   // Bind all event listeners first — must run regardless of auth state
@@ -787,6 +926,8 @@ async function loadLog() {
   document.getElementById('btn-refresh-c').addEventListener('click', loadClientes);
   document.getElementById('btn-refresh-s').addEventListener('click', () => loadSolicitudes(true));
   document.getElementById('btn-refresh-l').addEventListener('click', loadLog);
+  document.getElementById('btn-refresh-f').addEventListener('click', () => loadSolicitudesFiscales(true));
+  document.getElementById('sel-fiscal-estado').addEventListener('change', () => loadSolicitudesFiscales(true));
   document.getElementById('btn-cancel-m').addEventListener('click', closeModal);
   document.getElementById('btn-ok-m').addEventListener('click', confirmModal);
   document.getElementById('modal-bg').addEventListener('click', e => { if (e.target.id === 'modal-bg') closeModal(); });
