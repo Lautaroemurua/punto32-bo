@@ -183,6 +183,20 @@ textarea { resize: vertical; min-height: 80px; }
 .reject-form textarea { margin-top: 6px; min-height: 60px; }
 .reject-form-actions { display: flex; gap: 8px; margin-top: 8px; }
 
+/* ── ALERT CARDS ────────────────────────────────── */
+.alert-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.alert-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+.alert-card.warn { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3); }
+.alert-card.danger { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3); }
+.alert-card.info { background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.3); }
+.alert-icon { font-size: 16px; flex-shrink: 0; }
+.alert-body { flex: 1; min-width: 0; }
+.alert-title { font-weight: 600; }
+.alert-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.alert-action { flex-shrink: 0; }
+.comprobante-link { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: 12px; text-decoration: none; }
+.comprobante-link:hover { text-decoration: underline; }
+
 /* ── CHART ──────────────────────────────────────── */
 .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px 14px; margin-bottom: 18px; }
 .chart-heading { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 14px; }
@@ -281,6 +295,10 @@ textarea { resize: vertical; min-height: 80px; }
       <button class="tab-btn" data-tab="acciones" role="tab">
         Admin
         <span class="tab-badge" id="badge-acciones" hidden>0</span>
+      </button>
+      <button class="tab-btn" data-tab="contabilidad" role="tab">
+        Contabilidad
+        <span class="tab-badge" id="badge-cont" hidden>0</span>
       </button>
     </div>
 
@@ -393,6 +411,56 @@ textarea { resize: vertical; min-height: 80px; }
       </div>
     </div>
 
+    <!-- CONTABILIDAD -->
+    <div id="tab-contabilidad" hidden>
+      <div class="stat-row" id="cont-stats"></div>
+
+      <!-- Alertas -->
+      <div id="cont-alertas-wrap" hidden>
+        <div class="section-title" style="color:var(--warn)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Alertas de cobro
+          <span class="section-count" id="cont-alertas-cnt">0</span>
+        </div>
+        <div id="cont-alertas-list" class="alert-list"></div>
+      </div>
+
+      <!-- Toolbar pagos -->
+      <div class="toolbar" style="margin-bottom:14px">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="q-cont" type="search" placeholder="Cliente, concepto…">
+        </div>
+        <input id="fil-cont-mes" type="month" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 10px;font-size:13px;font-family:var(--ff-b)">
+        <button class="btn btn-outline btn-sm" id="btn-refresh-cont">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Actualizar
+        </button>
+        <button class="btn btn-primary btn-sm" id="btn-nuevo-pago">
+          + Registrar pago
+        </button>
+      </div>
+
+      <div id="st-cont"></div>
+      <div class="table-wrap">
+        <table id="tbl-cont" hidden>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Concepto</th>
+              <th class="td-r">Monto</th>
+              <th>Período</th>
+              <th>Comprobante</th>
+              <th>Admin</th>
+              <th>Fecha</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-cont"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- SOLICITUDES FISCALES -->
     <div id="tab-fiscales" hidden>
       <div class="toolbar" style="margin-bottom:20px">
@@ -433,6 +501,61 @@ textarea { resize: vertical; min-height: 80px; }
     <div class="modal-actions">
       <button class="btn btn-outline" id="btn-cancel-m">Cancelar</button>
       <button class="btn btn-primary" id="btn-ok-m">Enviar solicitud</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR PAGO -->
+<div id="modal-pago-bg" hidden style="position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="modal" style="max-width:500px;width:100%">
+    <div class="modal-title">Registrar pago de licencia</div>
+    <div class="modal-sub" id="pago-sub">Requiere aprobación del otro administrador antes de aplicar los días.</div>
+    <div class="modal-scroll">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Cliente <span style="color:var(--danger)">*</span></label>
+          <select id="pago-cliente" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 12px;font-size:14px;font-family:var(--ff-b)"></select>
+        </div>
+        <div class="form-group">
+          <label>Monto</label>
+          <input id="pago-monto" type="number" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Moneda</label>
+          <select id="pago-moneda" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 12px;font-size:14px;font-family:var(--ff-b)">
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Días a agregar <span style="color:var(--danger)">*</span></label>
+          <input id="pago-dias" type="number" min="1" placeholder="30">
+        </div>
+        <div class="form-group">
+          <label>Concepto</label>
+          <select id="pago-concepto" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 12px;font-size:14px;font-family:var(--ff-b)">
+            <option value="mensual">Mensual</option>
+            <option value="trimestral">Trimestral</option>
+            <option value="semestral">Semestral</option>
+            <option value="anual">Anual</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Link comprobante (Drive)</label>
+          <input id="pago-comprobante" type="url" placeholder="https://drive.google.com/…">
+          <div class="hint">Link al comprobante de pago en Google Drive</div>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Observaciones</label>
+          <textarea id="pago-obs" style="min-height:55px" placeholder="Notas adicionales…"></textarea>
+        </div>
+      </div>
+      <div id="pago-err" class="err" hidden></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="btn-cancel-pago">Cancelar</button>
+      <button class="btn btn-primary" id="btn-ok-pago">Enviar para aprobación</button>
     </div>
   </div>
 </div>
@@ -565,6 +688,7 @@ function showApp() {
   refreshTimer = setInterval(() => {
     if (!document.getElementById('tab-solicitudes').hidden) loadSolicitudes(false);
     if (!document.getElementById('tab-acciones').hidden) loadAcciones(false);
+    if (!document.getElementById('tab-contabilidad').hidden) loadContabilidad(false);
   }, 30000);
 }
 function logout(msg) { clearCreds(); creds = null; clearInterval(refreshTimer); showLogin(msg); }
@@ -612,12 +736,13 @@ async function verifyToken(token) {
 // TABS
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  ['clientes','solicitudes','auditoria','fiscales','acciones'].forEach(t => document.getElementById(`tab-${t}`).hidden = t !== tab);
-  if (tab === 'clientes')    loadClientes();
-  if (tab === 'solicitudes') loadSolicitudes(true);
-  if (tab === 'auditoria')   loadLog();
-  if (tab === 'fiscales')    loadSolicitudesFiscales(true);
-  if (tab === 'acciones')    loadAcciones(true);
+  ['clientes','solicitudes','auditoria','fiscales','acciones','contabilidad'].forEach(t => document.getElementById(`tab-${t}`).hidden = t !== tab);
+  if (tab === 'clientes')       loadClientes();
+  if (tab === 'solicitudes')    loadSolicitudes(true);
+  if (tab === 'auditoria')      loadLog();
+  if (tab === 'fiscales')       loadSolicitudesFiscales(true);
+  if (tab === 'acciones')       loadAcciones(true);
+  if (tab === 'contabilidad')   loadContabilidad(true);
 }
 
 // UTILS
@@ -1141,12 +1266,193 @@ async function confirmFiscalEdit() {
   } finally { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
 }
 
+// CONTABILIDAD
+let contPagos = [];
+let contAlertas = { porVencer: [], vencidos: [], sinPago: [] };
+let pagoClientePreset = null;
+
+function fmtMoney(n, moneda) {
+  if (n == null) return '—';
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: moneda || 'ARS', maximumFractionDigits: 0 }).format(n);
+}
+
+function renderContStats(stats) {
+  document.getElementById('cont-stats').innerHTML = `
+    <div class="stat-tile"><div class="num" style="color:var(--ok)">${fmtMoney(stats.cobrado_mes,'ARS')}</div><div class="lbl">Cobrado este mes</div></div>
+    <div class="stat-tile"><div class="num">${stats.cant_mes}</div><div class="lbl">Pagos este mes</div></div>
+    <div class="stat-tile"><div class="num" style="color:var(--accent)">${fmtMoney(stats.cobrado_total,'ARS')}</div><div class="lbl">Total histórico</div></div>
+    <div class="stat-tile"><div class="num">${stats.total_registros}</div><div class="lbl">Registros totales</div></div>`;
+}
+
+function renderContAlertas(al) {
+  const wrap = document.getElementById('cont-alertas-wrap');
+  const list = document.getElementById('cont-alertas-list');
+  const total = al.porVencer.length + al.vencidos.length;
+  document.getElementById('badge-cont').textContent = total;
+  document.getElementById('badge-cont').hidden = total === 0;
+  document.getElementById('cont-alertas-cnt').textContent = total;
+  if (!total && !al.sinPago.length) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  let html = '';
+  al.porVencer.forEach(c => {
+    html += `<div class="alert-card warn">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-body">
+        <div class="alert-title">${esc(c.nombre || c.email)} — vence en ${c.dias_restantes}d</div>
+        <div class="alert-sub">${esc(c.email)} · ${esc(c.plan || '—')} · último pago: ${c.ultimo_pago ? fmtDate(c.ultimo_pago) : 'nunca'}</div>
+      </div>
+      <div class="alert-action">
+        <button class="btn btn-primary btn-sm btn-pago-alert" data-id="${c.id}" data-nombre="${esc(c.nombre||c.email)}" data-email="${esc(c.email)}">Registrar pago</button>
+      </div>
+    </div>`;
+  });
+  al.vencidos.forEach(c => {
+    html += `<div class="alert-card danger">
+      <div class="alert-icon">🔴</div>
+      <div class="alert-body">
+        <div class="alert-title">${esc(c.nombre || c.email)} — venció hace ${c.dias_vencido}d</div>
+        <div class="alert-sub">${esc(c.email)} · ${esc(c.plan || '—')} · último pago: ${c.ultimo_pago ? fmtDate(c.ultimo_pago) : 'nunca'}</div>
+      </div>
+      <div class="alert-action">
+        <button class="btn btn-primary btn-sm btn-pago-alert" data-id="${c.id}" data-nombre="${esc(c.nombre||c.email)}" data-email="${esc(c.email)}">Registrar pago</button>
+      </div>
+    </div>`;
+  });
+  if (al.sinPago.length) {
+    html += `<div class="alert-card info">
+      <div class="alert-icon">ℹ️</div>
+      <div class="alert-body">
+        <div class="alert-title">${al.sinPago.length} cliente${al.sinPago.length > 1 ? 's' : ''} sin ningún pago registrado</div>
+        <div class="alert-sub">${al.sinPago.map(c => esc(c.email)).join(', ')}</div>
+      </div>
+    </div>`;
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('.btn-pago-alert').forEach(b => b.addEventListener('click', () => openPagoModal(b.dataset)));
+}
+
+function renderContPagos(list) {
+  const st = document.getElementById('st-cont'), tbl = document.getElementById('tbl-cont'), tb = document.getElementById('tbody-cont');
+  if (!list.length) { st.innerHTML = '<div class="empty"><div class="empty-icon">💳</div><p>Sin pagos registrados.</p></div>'; st.hidden = false; tbl.hidden = true; return; }
+  st.hidden = true; tbl.hidden = false;
+  tb.innerHTML = list.map(p => {
+    const comp = p.comprobante_url
+      ? `<a href="${esc(p.comprobante_url)}" target="_blank" rel="noopener" class="comprobante-link">
+           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 0 2 2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Drive
+         </a>`
+      : '<span style="color:var(--muted);font-size:12px">—</span>';
+    const periodo = p.periodo_desde ? `${fmtDate(p.periodo_desde)}${p.periodo_hasta ? ' → ' + fmtDate(p.periodo_hasta) : ''}` : '—';
+    return `<tr>
+      <td><div class="td-name">${esc(p.cliente_nombre||'—')}</div><div class="td-sub">${esc(p.cliente_email)}</div></td>
+      <td style="text-transform:capitalize">${esc(p.concepto)}</td>
+      <td class="td-r" style="font-weight:600;font-variant-numeric:tabular-nums">${p.monto != null ? fmtMoney(p.monto, p.moneda) : '—'}</td>
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${periodo}</td>
+      <td>${comp}</td>
+      <td style="color:var(--muted);font-size:12px">${esc((p.admin_email||'').split('@')[0])}</td>
+      <td style="color:var(--muted);white-space:nowrap">${fmtDate(p.creado_en)}</td>
+      <td>
+        <button class="btn-icon btn-del" title="Eliminar registro" data-pago-id="${p.id}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+  tb.querySelectorAll('[data-pago-id]').forEach(b => b.addEventListener('click', () => eliminarPago(b.dataset.pagoId)));
+}
+
+function filterCont() {
+  const q = (document.getElementById('q-cont').value || '').toLowerCase();
+  renderContPagos(q ? contPagos.filter(p =>
+    (p.cliente_email||'').toLowerCase().includes(q) ||
+    (p.cliente_nombre||'').toLowerCase().includes(q) ||
+    (p.concepto||'').toLowerCase().includes(q)
+  ) : contPagos);
+}
+
+async function loadContabilidad(showSpinner = true) {
+  const st = document.getElementById('st-cont'), tbl = document.getElementById('tbl-cont');
+  if (showSpinner) { st.innerHTML = '<div class="loading"><div class="spinner"></div> Cargando…</div>'; st.hidden = false; tbl.hidden = true; }
+  const mes = document.getElementById('fil-cont-mes').value;
+  try {
+    const [pagosData, alertasData] = await Promise.all([
+      api(`/admin/contabilidad/pagos${mes ? '?mes=' + encodeURIComponent(mes) : ''}`),
+      api('/admin/contabilidad/alertas'),
+    ]);
+    contPagos = pagosData.pagos || [];
+    contAlertas = alertasData;
+    renderContStats(pagosData.stats || {});
+    renderContAlertas(alertasData);
+    filterCont();
+  } catch (e) {
+    if (e.message !== 'unauth') { st.innerHTML = `<div class="empty"><p style="color:var(--danger)">${esc(e.message)}</p></div>`; st.hidden = false; }
+  }
+}
+
+function populatePagoClienteSelect(presetId = null) {
+  const sel = document.getElementById('pago-cliente');
+  sel.innerHTML = clientes.map(c =>
+    `<option value="${c.id}" ${String(c.id) === String(presetId) ? 'selected' : ''}>${esc(c.nombre || c.email)} — ${esc(c.email)}</option>`
+  ).join('');
+}
+
+function openPagoModal(preset = {}) {
+  pagoClientePreset = preset.id || null;
+  if (!clientes.length) loadClientes().then(() => populatePagoClienteSelect(pagoClientePreset));
+  else populatePagoClienteSelect(pagoClientePreset);
+  document.getElementById('pago-monto').value = '';
+  document.getElementById('pago-dias').value = '';
+  document.getElementById('pago-comprobante').value = '';
+  document.getElementById('pago-obs').value = '';
+  document.getElementById('pago-err').hidden = true;
+  document.getElementById('modal-pago-bg').hidden = false;
+}
+
+function closePagoModal() { document.getElementById('modal-pago-bg').hidden = true; }
+
+async function confirmPago() {
+  const clienteId = document.getElementById('pago-cliente').value;
+  const dias = Number(document.getElementById('pago-dias').value);
+  const monto = document.getElementById('pago-monto').value;
+  const moneda = document.getElementById('pago-moneda').value;
+  const concepto = document.getElementById('pago-concepto').value;
+  const comprobanteUrl = document.getElementById('pago-comprobante').value.trim();
+  const observaciones = document.getElementById('pago-obs').value.trim();
+  const errEl = document.getElementById('pago-err');
+  errEl.hidden = true;
+  if (!clienteId) { errEl.textContent = 'Seleccioná un cliente.'; errEl.hidden = false; return; }
+  if (!dias || dias < 1) { errEl.textContent = 'Ingresá la cantidad de días a agregar (mínimo 1).'; errEl.hidden = false; return; }
+  const motivo = `Pago ${concepto} — ${dias}d${monto ? ' — ' + fmtMoney(monto, moneda) : ''}`;
+  const datos = { dias, monto: monto || null, moneda, concepto, comprobanteUrl: comprobanteUrl || null, observaciones: observaciones || null };
+  const btn = document.getElementById('btn-ok-pago');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    await api('/admin/solicitudes-admin', {
+      method: 'POST',
+      body: JSON.stringify({ tipo: 'pago_licencia', clienteId: Number(clienteId), motivo, datos }),
+    });
+    closePagoModal();
+    toast('Pago enviado para aprobación del otro admin', 'ok');
+  } catch (e) {
+    if (e.message !== 'unauth') { errEl.textContent = e.message; errEl.hidden = false; }
+  } finally { btn.disabled = false; btn.textContent = 'Enviar para aprobación'; }
+}
+
+async function eliminarPago(id) {
+  if (!confirm('¿Eliminar este registro de pago?')) return;
+  try {
+    await api(`/admin/contabilidad/pagos/${id}`, { method: 'DELETE' });
+    toast('Registro eliminado', 'ok');
+    await loadContabilidad(false);
+  } catch (e) { toast(e.message, 'bad'); }
+}
+
 // ACCIONES ADMIN
 let accionesItems = [];
 
 function tipoLabel(tipo) {
   if (tipo === 'delete_cliente') return { txt: 'Eliminar cliente', cls: 'b-red', icon: '🗑' };
   if (tipo === 'edit_fiscal')    return { txt: 'Editar datos fiscales', cls: 'b-indigo', icon: '📄' };
+  if (tipo === 'pago_licencia')  return { txt: 'Pago de licencia', cls: 'b-green', icon: '💳' };
   return { txt: tipo, cls: 'b-gray', icon: '•' };
 }
 
@@ -1158,6 +1464,18 @@ function renderAccionCard(sol, seccion) {
   const cliente = sol.cliente_nombre ? `${sol.cliente_nombre} (${sol.cliente_email})` : sol.cliente_email;
 
   let diffHtml = '';
+  if (sol.tipo === 'pago_licencia' && sol.datos) {
+    const d = sol.datos;
+    const rows = [
+      d.dias    ? `<tr><td style="color:var(--muted);padding:2px 8px 2px 0;font-size:11px">Días a agregar</td><td style="font-size:12px;font-weight:600;color:var(--ok)">+${d.dias}d</td></tr>` : '',
+      d.monto   ? `<tr><td style="color:var(--muted);padding:2px 8px 2px 0;font-size:11px">Monto</td><td style="font-size:12px">${fmtMoney(d.monto, d.moneda)}</td></tr>` : '',
+      d.concepto ? `<tr><td style="color:var(--muted);padding:2px 8px 2px 0;font-size:11px">Concepto</td><td style="font-size:12px;text-transform:capitalize">${esc(d.concepto)}</td></tr>` : '',
+      d.comprobanteUrl ? `<tr><td style="color:var(--muted);padding:2px 8px 2px 0;font-size:11px">Comprobante</td><td><a href="${esc(d.comprobanteUrl)}" target="_blank" rel="noopener" class="comprobante-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 0 2 2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Ver en Drive</a></td></tr>` : '',
+      d.observaciones ? `<tr><td style="color:var(--muted);padding:2px 8px 2px 0;font-size:11px">Obs.</td><td style="font-size:12px">${esc(d.observaciones)}</td></tr>` : '',
+    ].filter(Boolean).join('');
+    if (rows) diffHtml = `<div style="margin-top:10px;overflow-x:auto"><table style="min-width:0;width:auto"><tbody>${rows}</tbody></table></div>`;
+  }
+
   if (sol.tipo === 'edit_fiscal' && sol.datos && Object.keys(sol.datos).length) {
     const labels = { nombreNegocio:'Nombre negocio', razonSocial:'Razón social', nombreComercial:'Nombre comercial',
       numeroDocumento:'CUIT', tipoDocumento:'Tipo doc', condicionFiscal:'Condición fiscal',
@@ -1354,6 +1672,13 @@ async function cancelarAccion(id) {
   document.getElementById('sel-fiscal-estado').addEventListener('change', () => loadSolicitudesFiscales(true));
   document.getElementById('btn-refresh-acc').addEventListener('click', () => loadAcciones(true));
   document.getElementById('sel-acciones-estado').addEventListener('change', () => loadAcciones(true));
+  document.getElementById('btn-refresh-cont').addEventListener('click', () => loadContabilidad(true));
+  document.getElementById('fil-cont-mes').addEventListener('change', () => loadContabilidad(true));
+  document.getElementById('q-cont').addEventListener('input', filterCont);
+  document.getElementById('btn-nuevo-pago').addEventListener('click', () => openPagoModal());
+  document.getElementById('btn-cancel-pago').addEventListener('click', closePagoModal);
+  document.getElementById('btn-ok-pago').addEventListener('click', confirmPago);
+  document.getElementById('modal-pago-bg').addEventListener('click', e => { if (e.target.id === 'modal-pago-bg') closePagoModal(); });
   document.getElementById('btn-cancel-m').addEventListener('click', closeModal);
   document.getElementById('btn-ok-m').addEventListener('click', confirmModal);
   document.getElementById('modal-bg').addEventListener('click', e => { if (e.target.id === 'modal-bg') closeModal(); });
@@ -1368,6 +1693,7 @@ async function cancelarAccion(id) {
     if (!document.getElementById('modal-bg').hidden) closeModal();
     if (!document.getElementById('modal-delete-bg').hidden) closeDeleteModal();
     if (!document.getElementById('modal-fiscal-bg').hidden) closeFiscalModal();
+    if (!document.getElementById('modal-pago-bg').hidden) closePagoModal();
   });
 
   // Decide which view to show
