@@ -310,6 +310,9 @@ textarea { resize: vertical; min-height: 80px; }
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input id="q-clientes" type="search" placeholder="Nombre o email…">
         </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap">
+          <input type="checkbox" id="chk-eliminados" style="accent-color:var(--danger)"> Ver eliminados
+        </label>
         <button class="btn btn-outline btn-sm" id="btn-refresh-c">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           Actualizar
@@ -755,6 +758,7 @@ function fmtRel(iso) {
 }
 
 function clientStatus(c) {
+  if (c.eliminado_en) return { lbl:'Eliminado (lógico)', badgeCls:'b-red', rowCls:'row-bad', dias:null };
   if (!c.activo && !c.vencimiento) return { lbl:'Inactivo', badgeCls:'b-gray', rowCls:'row-gray', dias:null };
   if (!c.activo) { const d = Math.ceil((new Date(c.vencimiento) - Date.now()) / 86400000); return { lbl:'Vencido', badgeCls:'b-red', rowCls:'row-bad', dias:d }; }
   if (c.dayleft === 9999) return { lbl:'Sin fecha', badgeCls:'b-gray', rowCls:'row-gray', dias:null };
@@ -764,16 +768,18 @@ function clientStatus(c) {
 
 // CLIENTES
 function renderStats(list) {
-  const activos  = list.filter(c => c.activo && c.dayleft !== 9999 && c.dayleft > 0).length;
-  const vencidos = list.filter(c => !c.activo && c.vencimiento).length;
-  const sinFecha = list.filter(c => c.activo && c.dayleft === 9999).length;
-  const manuales = list.filter(c => c.modificado_manualmente).length;
+  const activos    = list.filter(c => !c.eliminado_en && c.activo && c.dayleft !== 9999 && c.dayleft > 0).length;
+  const vencidos   = list.filter(c => !c.eliminado_en && !c.activo && c.vencimiento).length;
+  const sinFecha   = list.filter(c => !c.eliminado_en && c.activo && c.dayleft === 9999).length;
+  const manuales   = list.filter(c => !c.eliminado_en && c.modificado_manualmente).length;
+  const eliminados = list.filter(c => c.eliminado_en).length;
   document.getElementById('stats').innerHTML = `
     <div class="stat-tile"><div class="num">${list.length}</div><div class="lbl">Total</div></div>
     <div class="stat-tile"><div class="num" style="color:var(--ok)">${activos}</div><div class="lbl">Activos</div></div>
     <div class="stat-tile"><div class="num" style="color:var(--danger)">${vencidos}</div><div class="lbl">Vencidos</div></div>
     <div class="stat-tile"><div class="num" style="color:var(--warn)">${sinFecha}</div><div class="lbl">Sin fecha</div></div>
-    <div class="stat-tile"><div class="num" style="color:var(--accent)">${manuales}</div><div class="lbl">Manuales</div></div>`;
+    <div class="stat-tile"><div class="num" style="color:var(--accent)">${manuales}</div><div class="lbl">Manuales</div></div>
+    ${eliminados > 0 ? `<div class="stat-tile"><div class="num" style="color:var(--danger)">${eliminados}</div><div class="lbl">Eliminados</div></div>` : ''}`;
 }
 
 function renderClientes(list) {
@@ -785,8 +791,10 @@ function renderClientes(list) {
     const diasHtml = dias === null ? '<span style="color:var(--muted)">—</span>'
       : `<span style="font-variant-numeric:tabular-nums;font-weight:600;color:${dias <= 0 ? 'var(--danger)' : dias <= 7 ? 'var(--warn)' : 'var(--ok)'}">${dias > 0 ? '+' : ''}${dias}</span>`;
     const manualBadge = c.modificado_manualmente ? ' <span class="badge b-indigo" style="font-size:10px">Manual</span>' : '';
-    return `<tr class="${rowCls}">
-      <td><div class="td-name">${esc(c.nombre || '—')}${manualBadge}</div><div class="td-sub">${esc(c.email)}</div></td>
+    const elimBadge = c.eliminado_en ? ` <span class="badge b-red" style="font-size:10px" title="Eliminado por ${esc(c.eliminado_por||'')} el ${fmtDate(c.eliminado_en)}">Eliminado</span>` : '';
+    const elimInfo = c.eliminado_en ? `<div class="td-sub" style="color:var(--danger);font-size:11px">🗂 Comprobantes conservados · ${esc(c.motivo_eliminacion||'')}</div>` : '';
+    return `<tr class="${rowCls}" style="${c.eliminado_en ? 'opacity:.65' : ''}">
+      <td><div class="td-name">${esc(c.nombre || '—')}${manualBadge}${elimBadge}</div><div class="td-sub">${esc(c.email)}</div>${elimInfo}</td>
       <td style="color:var(--muted)">${esc(c.plan || '—')}</td>
       <td class="td-r">${diasHtml}</td>
       <td><span class="badge ${badgeCls}">${lbl}</span></td>
@@ -821,14 +829,18 @@ function renderClientes(list) {
 
 function filterClientes() {
   const q = (document.getElementById('q-clientes').value || '').toLowerCase();
-  renderClientes(q ? clientes.filter(c => (c.nombre||'').toLowerCase().includes(q) || c.email.toLowerCase().includes(q)) : clientes);
+  const showDeleted = document.getElementById('chk-eliminados').checked;
+  let list = showDeleted ? clientes : clientes.filter(c => !c.eliminado_en);
+  if (q) list = list.filter(c => (c.nombre||'').toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
+  renderClientes(list);
 }
 
 async function loadClientes() {
   const st = document.getElementById('st-clientes'), tbl = document.getElementById('tbl-clientes');
   st.innerHTML = '<div class="loading"><div class="spinner"></div> Cargando…</div>'; st.hidden = false; tbl.hidden = true;
   try {
-    const d = await api('/clientes');
+    const includeDeleted = document.getElementById('chk-eliminados').checked;
+    const d = await api(`/clientes${includeDeleted ? '?includeDeleted=1' : ''}`);
     clientes = d.clientes || [];
     renderStats(clientes); filterClientes();
   } catch (e) { if (e.message !== 'unauth') st.innerHTML = `<div class="empty"><p style="color:var(--danger)">${esc(e.message)}</p></div>`; }
@@ -1664,6 +1676,7 @@ async function cancelarAccion(id) {
   document.getElementById('btn-logout').addEventListener('click', () => logout());
   document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   document.getElementById('q-clientes').addEventListener('input', filterClientes);
+  document.getElementById('chk-eliminados').addEventListener('change', loadClientes);
   document.getElementById('q-log').addEventListener('input', filterLog);
   document.getElementById('btn-refresh-c').addEventListener('click', loadClientes);
   document.getElementById('btn-refresh-s').addEventListener('click', () => loadSolicitudes(true));
